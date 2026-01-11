@@ -1,0 +1,176 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 14%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 14%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 100% 50%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 222 47% 18%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 222 47% 20%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 142 76% 45%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 47% 22%;
+    --input: 222 47% 22%;
+    --ring: 210 100% 50%;
+
+    --radius: 0.5rem;
+
+    /* Chess-specific colors */
+    --chess-light: 210 30% 85%;
+    --chess-dark: 210 70% 50%;
+    --chess-highlight: 50 100% 60%;
+    --chess-move-hint: 142 76% 45%;
+
+    /* Sidebar */
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 100% 50%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 222 47% 15%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 47% 18%;
+    --sidebar-ring: 210 100% 50%;
+
+    /* Gradient tokens */
+    --gradient-board: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 8%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(210 100% 50%) 0%, hsl(210 100% 40%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(142 76% 45%) 0%, hsl(142 76% 35%) 100%);
+
+    /* Shadow tokens */
+    --shadow-sm: 0 2px 8px hsl(222 47% 5% / 0.5);
+    --shadow-md: 0 4px 16px hsl(222 47% 5% / 0.6);
+    --shadow-lg: 0 8px 32px hsl(222 47% 5% / 0.7);
+    --shadow-glow: 0 0 20px hsl(210 100% 50% / 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+@layer utilities {
+  .chess-square-light {
+    @apply bg-[hsl(var(--chess-light))];
+  }
+
+  .chess-square-dark {
+    @apply bg-[hsl(var(--chess-dark))];
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-primary);
+  }
+
+  .glass-panel {
+    @apply bg-card/80 backdrop-blur-sm border border-border;
+  }
+
+  .hover-lift {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes toast-progress {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-100% );
+    }
+  }
+
+  .animate-toast-progress {
+    animation: toast-progress 4s linear forwards;
+  }
+
+  .toast-progress-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: hsl(var(--primary) / 0.18);
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .toast-progress-bar {
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--primary));
+    transform-origin: left;
+  }
+}
+
+@layer components {
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground transition-all duration-200;
+    @apply hover:bg-sidebar-accent hover:text-foreground;
+  }
+
+  .sidebar-item-active {
+    @apply bg-sidebar-accent text-foreground;
+  }
+
+  .chess-piece {
+    @apply select-none cursor-pointer transition-transform duration-150;
+    @apply hover:scale-105;
+  }
+  .piece-outline {
+    filter: drop-shadow(0 0 2px rgba(255,255,255,0.9))
+            drop-shadow(0 0 4px rgba(255,255,255,0.7)); 
+  }
+
+
+
+
+  .btn-primary {
+    @apply px-6 py-2.5 rounded-lg font-medium transition-all duration-200;
+    @apply bg-primary text-primary-foreground hover:opacity-90;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-accent {
+    @apply px-6 py-2.5 rounded-lg font-medium transition-all duration-200;
+    background: var(--gradient-accent);
+    @apply text-accent-foreground hover:opacity-90;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-outline {
+    @apply px-6 py-2.5 rounded-lg font-medium transition-all duration-200;
+    @apply border border-border text-foreground hover:bg-secondary;
+  }
+}
