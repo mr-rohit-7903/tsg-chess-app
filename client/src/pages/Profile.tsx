@@ -97,8 +97,11 @@ const Profile = () => {
 
               <div className="flex-1 min-w-0">
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground truncate">
-                  {displayName}
+                  {profileData?.fullName || displayName}
                 </h1>
+                {profileData?.fullName && (
+                  <p className="text-lg text-muted-foreground font-medium">@{displayName}</p>
+                )}
                 <p className="text-muted-foreground mt-1 text-sm sm:text-base truncate">
                   Member since {memberSince}
                 </p>

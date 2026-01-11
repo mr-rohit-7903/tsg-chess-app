@@ -11,10 +11,16 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 // Register
 router.post('/register', async (req, res) => {
     try {
-        const { username, email, password, hallOfResidence } = req.body;
+        let { username, fullName, email, password, hallOfResidence } = req.body;
         if (!username || !email || !password || !hallOfResidence) {
             return res.status(400).json({ error: 'Username, email, password, and hall of residence are required' });
         }
+
+        // Validate username: no spaces, convert to lowercase
+        if (/\s/.test(username)) {
+            return res.status(400).json({ error: 'Username cannot contain spaces' });
+        }
+        username = username.toLowerCase();
 
         const existingUser = await UserRepository.findByUsernameOrEmail(username, email);
         if (existingUser) {
@@ -27,6 +33,7 @@ router.post('/register', async (req, res) => {
         const user = await UserRepository.create({
             userId,
             username,
+            fullName,
             email,
             password: hashedPassword,
             hallOfResidence,

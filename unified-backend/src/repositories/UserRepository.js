@@ -13,6 +13,7 @@ const toCamelCase = (row) => {
         odId: row.id, // For compatibility
         userId: row.user_id,
         username: row.username,
+        fullName: row.full_name,
         email: row.email,
         password: row.password,
         hallOfResidence: row.hall_of_residence,
@@ -34,7 +35,7 @@ class UserRepository {
      */
     static async findByUserId(userId, excludePassword = true) {
         const fields = excludePassword 
-            ? 'id, user_id, username, email, hall_of_residence, is_online, bullet, blitz, rapid, puzzles, games_played, games_won, created_at, updated_at'
+            ? 'id, user_id, username, full_name, email, hall_of_residence, is_online, bullet, blitz, rapid, puzzles, games_played, games_won, created_at, updated_at'
             : '*';
         
         const result = await query(
@@ -73,12 +74,12 @@ class UserRepository {
     /**
      * Create new user
      */
-    static async create({ userId, username, email, password, hallOfResidence }) {
+    static async create({ userId, username, fullName, email, password, hallOfResidence }) {
         const result = await query(
-            `INSERT INTO users (user_id, username, email, password, hall_of_residence)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO users (user_id, username, full_name, email, password, hall_of_residence)
+             VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING *`,
-            [userId, username, email, password, hallOfResidence]
+            [userId, username, fullName, email, password, hallOfResidence]
         );
         const user = toCamelCase(result.rows[0]);
         delete user.password;
@@ -89,8 +90,9 @@ class UserRepository {
      * Update user fields
      */
     static async update(userId, updates) {
-        const allowedFields = ['email', 'is_online', 'bullet', 'blitz', 'rapid', 'puzzles', 'games_played', 'games_won'];
+        const allowedFields = ['full_name', 'email', 'is_online', 'bullet', 'blitz', 'rapid', 'puzzles', 'games_played', 'games_won'];
         const fieldMapping = {
+            fullName: 'full_name',
             email: 'email',
             isOnline: 'is_online',
             bullet: 'bullet',

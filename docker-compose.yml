@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -7,38 +5,80 @@ services:
     container_name: chess-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: chess_user
-      POSTGRES_PASSWORD: chess_password_secure
-      POSTGRES_DB: chess_platform
-    ports:
-      - "5433:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-chess_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chess_password_secure}
+      POSTGRES_DB: ${POSTGRES_DB:-chess_platform}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./unified-backend/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U chess_user -d chess_platform" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chess_user} -d ${POSTGRES_DB:-chess_platform}" ]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - chess-network
 
   # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: chess-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - chess-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./unified-backend
+      dockerfile: Dockerfile
+    container_name: chess-backend
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-chess_user}:${POSTGRES_PASSWORD:-chess_password_secure}@postgres:5432/${POSTGRES_DB:-chess_platform}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_change_in_production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chess-network
+
+  # Frontend (Served via internal Nginx)
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost/api}
+        VITE_WS_BASE_URL: ${VITE_WS_BASE_URL:-http://localhost}
+    container_name: chess-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks:
+      - chess-network
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
+
+
+networks:
+  chess-network:
+    driver: bridge

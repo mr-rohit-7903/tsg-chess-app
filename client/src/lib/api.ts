@@ -15,6 +15,7 @@ export type GameHistoryEntry = {
 export type User = {
   userId: string;
   username: string;
+  fullName?: string;
   email: string;
   hallOfResidence: string;
   bullet: number;
@@ -56,11 +57,11 @@ export async function login(username: string, password: string) {
   return data as { message: string; user: User; token: string };
 }
 
-export async function register(username: string, email: string, password: string, hallOfResidence: string) {
+export async function register(username: string, fullName: string, email: string, password: string, hallOfResidence: string) {
   const res = await fetch(`${API_BASE_URL}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email, password, hallOfResidence }),
+    body: JSON.stringify({ username, fullName, email, password, hallOfResidence }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Registration failed');

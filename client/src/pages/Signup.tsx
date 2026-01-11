@@ -12,8 +12,13 @@ import { Crown } from 'lucide-react';
 const Signup = () => {
   const navigate = useNavigate();
   const { register, loading, error } = useAuth();
-  const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '', hallOfResidence: '' });
+  const [form, setForm] = useState({ username: '', fullName: '', email: '', password: '', confirmPassword: '', hallOfResidence: '' });
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toLowerCase().replace(/\s/g, '');
+    setForm({ ...form, username: val });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +41,7 @@ const Signup = () => {
     }
 
     try {
-      await register(form.username, form.email, form.password, form.hallOfResidence);
+      await register(form.username, form.fullName, form.email, form.password, form.hallOfResidence);
       toast({ title: 'Success', description: 'Account created successfully!' });
       navigate('/');
     } catch (err) {
@@ -70,8 +75,20 @@ const Signup = () => {
                   type="text"
                   placeholder="Choose a username"
                   value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  onChange={handleUsernameChange}
                   required
+                  disabled={loading}
+                />
+                <p className="text-xs text-muted-foreground">Only lowercase letters and numbers, no spaces.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="Enter your real name"
+                  value={form.fullName}
+                  onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                   disabled={loading}
                 />
               </div>

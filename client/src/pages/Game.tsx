@@ -187,6 +187,14 @@ const Game = () => {
     fetchGameState();
   }, [gameId, isAuthenticated, user, chess, syncMovesFromFen]);
 
+  // Ref for latest game stat to access inside listeners without re-binding
+  const gameStateRef = useRef<api.GameState | null>(null);
+
+  // Update ref whenever state changes
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
   // WebSocket event handlers - NO POLLING, just subscribe to events
   useEffect(() => {
     if (!gameId || !socket || !isConnected || !user?.userId) {
@@ -201,6 +209,8 @@ const Game = () => {
     const onGameState = (newState: api.GameState) => {
       console.log('[Game] Received game_state via WebSocket');
       setGameState(newState);
+      // gameStateRef is updated via effect, but for immediate use in this closure valid next tick
+      // But here we set explicit refs
       setDisplayFen(newState.fen);
       whiteBaseRef.current = newState.whiteTimeLeftMs;
       blackBaseRef.current = newState.blackTimeLeftMs;
@@ -224,6 +234,17 @@ const Game = () => {
       if (payload.gameId !== gameId) return;
       console.log('[Game] Received move_made:', payload.move.san);
       
+      const newState = { 
+        ...(gameStateRef.current || {}), 
+        fen: payload.fen,
+        whiteTimeLeftMs: payload.whiteTimeLeftMs,
+        blackTimeLeftMs: payload.blackTimeLeftMs,
+        lastMoveTimestamp: payload.lastMoveTimestamp,
+        gameStarted: payload.gameStarted
+      } as api.GameState;
+
+      setGameState(newState); // Triggers ref update
+      
       setDisplayFen(payload.fen);
       fenBaseRef.current = payload.fen;
       whiteBaseRef.current = payload.whiteTimeLeftMs;
@@ -237,8 +258,16 @@ const Game = () => {
 
     const onMoveError = (payload: { error: string; move: { from: string; to: string } }) => {
       console.error('[Game] Move error:', payload.error);
-      if (gameState) {
-        setDisplayFen(gameState.fen);
+      
+      // If game not found, it might have ended.
+      if (payload.error === 'Game not found') {
+          // Do not show destructive toast loop if game is actually over?
+          // If we have local state, assume it ended?
+          // But usually we get game_over event.
+      }
+
+      if (gameStateRef.current) {
+        setDisplayFen(gameStateRef.current.fen);
       }
       setPendingMove(null);
       toast({
@@ -251,12 +280,7 @@ const Game = () => {
     const onGameOver = (outcome: { winner: string; reason: string; noRatingChange?: boolean; whiteRatingChange?: number; blackRatingChange?: number }) => {
       console.log('[Game] Game over:', outcome);
       setGameOver(outcome);
-      toast({
-        title: 'Game Over',
-        description: outcome.winner === 'draw'
-          ? `Game ended in a draw by ${outcome.reason}`
-          : `${outcome.winner} wins by ${outcome.reason}`,
-      });
+      // Stop timer updates visually if needed, though stopped by checking gameOver
     };
 
     socket.on('game_state', onGameState);
@@ -272,7 +296,7 @@ const Game = () => {
       socket.off('game_over', onGameOver);
       socket.emit('leave_game', gameId);
     };
-  }, [gameId, socket, isConnected, user?.userId, syncMovesFromFen, gameState]);
+  }, [gameId, socket, isConnected, user?.userId, syncMovesFromFen]); // Removed gameState dependency
 
   // Timer interval - ONLY for updating clock display, NOT for fetching state
   useEffect(() => {

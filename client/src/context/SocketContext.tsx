@@ -17,15 +17,9 @@ const getSocketUrl = () => {
     if (import.meta.env.VITE_WS_BASE_URL) {
         return import.meta.env.VITE_WS_BASE_URL;
     }
-    if (import.meta.env.VITE_API_BASE_URL) {
-        return import.meta.env.VITE_API_BASE_URL;
-    }
-    // Development fallback
-    if (import.meta.env.DEV) {
-        return 'http://localhost:3001';
-    }
-    // Production: assume same origin
-    return window.location.origin;
+    // Default to relative path / (uses current origin)
+    // This works with Vite proxy in dev and Nginx in prod
+    return '/';
 };
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
