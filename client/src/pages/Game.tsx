@@ -25,7 +25,7 @@ const Game = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  
+
   // Game state
   const [gameState, setGameState] = useState<api.GameState | null>(null);
   const [displayFen, setDisplayFen] = useState<string>('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
@@ -41,11 +41,12 @@ const Game = () => {
   const [whitePlayerInfo, setWhitePlayerInfo] = useState<{ username: string; rating: number } | null>(null);
   const [blackPlayerInfo, setBlackPlayerInfo] = useState<{ username: string; rating: number } | null>(null);
   const [pendingMove, setPendingMove] = useState<{ from: string; to: string } | null>(null);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
 
   // Chess instances
   const chess = useMemo(() => new Chess(), []);
   const chessHistory = useRef<Chess>(new Chess());
-  
+
   // Timer refs
   const whiteBaseRef = useRef<number>(0);
   const blackBaseRef = useRef<number>(0);
@@ -62,10 +63,10 @@ const Game = () => {
     const historyChess = chessHistory.current;
     const beforeFen = historyChess.fen();
     if (beforeFen === targetFen) return;
-    
+
     const legalMoves = historyChess.moves({ verbose: true }) as Move[];
     let applied = false;
-    
+
     for (const move of legalMoves) {
       historyChess.move(move);
       if (historyChess.fen() === targetFen) {
@@ -74,7 +75,7 @@ const Game = () => {
       }
       historyChess.undo();
     }
-    
+
     if (applied) {
       const history = historyChess.history({ verbose: true }) as Move[];
       const movesList: MoveListMove[] = [];
@@ -110,7 +111,7 @@ const Game = () => {
       chess.load(fenBaseRef.current);
       isWhiteTurnLocal = chess.turn() === 'w';
     } catch { void 0 }
-    
+
     const elapsed = Date.now() - ts;
     if (isWhiteTurnLocal) {
       setWhiteTimeLeft(Math.max(0, whiteBaseRef.current - elapsed));
@@ -222,9 +223,9 @@ const Game = () => {
       setLoading(false);
     };
 
-    const onMoveMade = (payload: { 
-      gameId: string; 
-      move: { from: string; to: string; san: string }; 
+    const onMoveMade = (payload: {
+      gameId: string;
+      move: { from: string; to: string; san: string };
       fen: string;
       whiteTimeLeftMs: number;
       blackTimeLeftMs: number;
@@ -233,9 +234,9 @@ const Game = () => {
     }) => {
       if (payload.gameId !== gameId) return;
       console.log('[Game] Received move_made:', payload.move.san);
-      
-      const newState = { 
-        ...(gameStateRef.current || {}), 
+
+      const newState = {
+        ...(gameStateRef.current || {}),
         fen: payload.fen,
         whiteTimeLeftMs: payload.whiteTimeLeftMs,
         blackTimeLeftMs: payload.blackTimeLeftMs,
@@ -244,26 +245,26 @@ const Game = () => {
       } as api.GameState;
 
       setGameState(newState); // Triggers ref update
-      
+
       setDisplayFen(payload.fen);
       fenBaseRef.current = payload.fen;
       whiteBaseRef.current = payload.whiteTimeLeftMs;
       blackBaseRef.current = payload.blackTimeLeftMs;
       tsBaseRef.current = payload.lastMoveTimestamp;
       gameStartedRef.current = payload.gameStarted;
-      
+
       syncMovesFromFen(payload.fen);
       setPendingMove(null);
     };
 
     const onMoveError = (payload: { error: string; move: { from: string; to: string } }) => {
       console.error('[Game] Move error:', payload.error);
-      
+
       // If game not found, it might have ended.
       if (payload.error === 'Game not found') {
-          // Do not show destructive toast loop if game is actually over?
-          // If we have local state, assume it ended?
-          // But usually we get game_over event.
+        // Do not show destructive toast loop if game is actually over?
+        // If we have local state, assume it ended?
+        // But usually we get game_over event.
       }
 
       if (gameStateRef.current) {
@@ -301,7 +302,7 @@ const Game = () => {
   // Timer interval - ONLY for updating clock display, NOT for fetching state
   useEffect(() => {
     if (gameOver) return;
-    
+
     const interval = setInterval(() => {
       computeTimes();
 
@@ -317,7 +318,7 @@ const Game = () => {
       } catch { return; }
 
       const elapsed = Date.now() - ts;
-      const timeLeft = isWhiteTurnLocal 
+      const timeLeft = isWhiteTurnLocal
         ? Math.max(0, whiteBaseRef.current - elapsed)
         : Math.max(0, blackBaseRef.current - elapsed);
 
@@ -371,7 +372,7 @@ const Game = () => {
       if (result) {
         setDisplayFen(localChess.fen());
         setPendingMove({ from: move.from, to: move.to });
-        
+
         const updatedHistory = localChess.history({ verbose: true }) as Move[];
         const movesList: MoveListMove[] = [];
         for (let i = 0; i < updatedHistory.length; i += 2) {
@@ -417,9 +418,14 @@ const Game = () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const handleResign = async () => {
+  const handleResign = () => {
     if (!gameId || gameOver) return;
-    if (!confirm('Are you sure you want to resign?')) return;
+    setShowResignConfirm(true);
+  };
+
+  const confirmResign = async () => {
+    setShowResignConfirm(false);
+    if (!gameId) return;
     try {
       const token = localStorage.getItem('auth_token');
       if (token) await api.resignGame(gameId, token);
@@ -508,14 +514,6 @@ const Game = () => {
             <div className="flex justify-between items-center bg-card p-2 rounded border">
               <div className="text-sm font-semibold">
                 {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="destructive" size="sm" onClick={handleResign} disabled={!!gameOver}>
-                  Resign
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-                  Home
-                </Button>
               </div>
             </div>
 
@@ -674,14 +672,55 @@ const Game = () => {
                 </div>
               </div>
             )}
+
+            {/* Resign Confirmation Modal */}
+            {showResignConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                <div className="relative bg-card border-2 border-border rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
+                  <div className="bg-gradient-to-r from-destructive/20 to-red-600/20 p-5 border-b border-border">
+                    <h2 className="text-2xl font-bold text-center text-foreground">Resign Game?</h2>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    <div className="text-center">
+                      <div className="text-5xl mb-4">🏳️</div>
+                      <p className="text-muted-foreground">Are you sure you want to resign this game? This action cannot be undone.</p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        className="flex-1 px-4 py-3 rounded-lg bg-secondary text-secondary-foreground font-semibold hover:bg-secondary/80 border border-border"
+                        onClick={() => setShowResignConfirm(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="flex-1 px-4 py-3 rounded-lg bg-destructive text-destructive-foreground font-semibold hover:bg-destructive/90"
+                        onClick={confirmResign}
+                      >
+                        Resign
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    aria-label="Close"
+                    onClick={() => setShowResignConfirm(false)}
+                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-secondary hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Side panel with chat */}
         <div className="w-full md:w-80 md:border-l border-t md:border-t-0 p-4">
-          <GamePanel 
-            className="h-full" 
-            moves={moves} 
+          <GamePanel
+            className="h-full"
+            moves={moves}
             gameId={gameId}
             currentUserId={user.userId}
             onResign={handleResign}

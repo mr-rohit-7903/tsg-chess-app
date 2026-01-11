@@ -29,9 +29,9 @@ interface GamePanelProps {
   gameOver?: boolean;
 }
 
-export const GamePanel: React.FC<GamePanelProps> = ({ 
-  className, 
-  moves = [], 
+export const GamePanel: React.FC<GamePanelProps> = ({
+  className,
+  moves = [],
   gameId,
   currentUserId,
   onResign,
@@ -45,7 +45,7 @@ export const GamePanel: React.FC<GamePanelProps> = ({
   const [opponentTyping, setOpponentTyping] = useState(false);
   const [drawOffered, setDrawOffered] = useState(false);
   const [drawOfferReceived, setDrawOfferReceived] = useState<{ offeredBy: string; username: string } | null>(null);
-  
+
   const { socket } = useSocket();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -119,7 +119,7 @@ export const GamePanel: React.FC<GamePanelProps> = ({
     });
 
     setNewMessage('');
-    
+
     // Stop typing indicator
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -191,8 +191,8 @@ export const GamePanel: React.FC<GamePanelProps> = ({
           onClick={() => setActiveTab('play')}
           className={cn(
             "flex-1 py-3 px-4 text-sm font-medium transition-colors",
-            activeTab === 'play' 
-              ? "text-foreground border-b-2 border-primary" 
+            activeTab === 'play'
+              ? "text-foreground border-b-2 border-primary"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
@@ -202,8 +202,8 @@ export const GamePanel: React.FC<GamePanelProps> = ({
           onClick={() => setActiveTab('chat')}
           className={cn(
             "flex-1 py-3 px-4 text-sm font-medium transition-colors relative",
-            activeTab === 'chat' 
-              ? "text-foreground border-b-2 border-primary" 
+            activeTab === 'chat'
+              ? "text-foreground border-b-2 border-primary"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
@@ -307,13 +307,13 @@ export const GamePanel: React.FC<GamePanelProps> = ({
       <div className="p-4 border-t border-border">
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
-            <button 
+            <button
               className="p-2 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
               title="Share game"
             >
               <Share2 size={18} />
             </button>
-            <button 
+            <button
               className="p-2 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
               title="Download PGN"
             >
@@ -321,20 +321,20 @@ export const GamePanel: React.FC<GamePanelProps> = ({
             </button>
           </div>
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={handleOfferDraw}
               disabled={gameOver || drawOffered}
               className={cn(
                 "p-2 rounded-lg bg-secondary transition-colors",
-                drawOffered 
-                  ? "text-yellow-500 cursor-not-allowed" 
+                drawOffered
+                  ? "text-yellow-500 cursor-not-allowed"
                   : "text-muted-foreground hover:text-foreground"
               )}
               title={drawOffered ? "Draw offered" : "Offer draw"}
             >
               <Handshake size={18} />
             </button>
-            <button 
+            <button
               onClick={onResign}
               disabled={gameOver}
               className="p-2 rounded-lg bg-secondary text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
