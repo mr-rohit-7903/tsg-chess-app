@@ -4,13 +4,13 @@ import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
-import { 
-  Gamepad2, 
-  Puzzle, 
-  GraduationCap, 
-  Eye, 
-  Users, 
-  Wrench, 
+import {
+  Gamepad2,
+  Puzzle,
+  GraduationCap,
+  Eye,
+  Users,
+  Wrench,
   User,
   Globe,
   HelpCircle,
@@ -45,7 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, showCloseButton }) 
       {/* Logo */}
       <div className="p-4">
         <NavLink to="/" className="flex items-center gap-2 group">
-          <Crown className="w-8 h-8 text-primary" />
+          <span className="text-primary text-2xl">♔</span>
           <span className="font-bold text-lg text-foreground">
             Chess<span className="text-primary">TSG</span>
           </span>

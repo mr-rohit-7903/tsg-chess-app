@@ -1,9 +1,19 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Chess, Piece } from "chess.js";
 import { ChessPiece, PieceType as PieceSymbolType } from "./ChessPiece";
+import { PromotionPopup, PromotionPiece } from "./PromotionPopup";
 import { cn } from "@/lib/utils";
 
 type PieceType = PieceSymbolType | null;
+
+/**
+ * Pending promotion state - stores the move details while waiting for user selection
+ */
+interface PendingPromotion {
+  from: string;
+  to: string;
+  color: "w" | "b";
+}
 
 interface ChessBoardProps {
   flipped?: boolean;
@@ -32,7 +42,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   // Use external FEN if provided, otherwise use internal state
   const [internalFen, setInternalFen] = useState<string>(chess.fen());
   const currentFen = externalFen ?? internalFen;
-  
+
   // Sync chess instance with current FEN
   useEffect(() => {
     if (!currentFen) return;
@@ -46,6 +56,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [legalMoves, setLegalMoves] = useState<string[]>([]);
+
+  // Pending promotion state - when set, the promotion popup is shown
+  const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null);
 
   const getBoardFromChess = (): PieceType[][] => {
     const raw: (Piece | null)[][] = chess.board();
@@ -83,13 +96,43 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     }
   };
 
+  /**
+   * Check if a move is a pawn promotion
+   * A pawn promotes when it reaches the last rank (8 for white, 1 for black)
+   */
+  const isPromotionMove = (from: string, to: string): boolean => {
+    const piece = chess.get(from as import("chess.js").Square);
+    if (!piece || piece.type !== 'p') return false;
+
+    const targetRank = to[1];
+    // White pawns promote on rank 8, black pawns on rank 1
+    return (piece.color === 'w' && targetRank === '8') ||
+      (piece.color === 'b' && targetRank === '1');
+  };
+
   const tryMoveTo = (targetSquare: string) => {
     if (!chess || !selectedSquare || disabled) return;
     if (!legalMoves.includes(targetSquare)) return;
 
+    // Block moves while promotion is pending
+    if (pendingPromotion) return;
+
+    // Check if this is a promotion move
+    if (isPromotionMove(selectedSquare, targetSquare)) {
+      const piece = chess.get(selectedSquare as import("chess.js").Square);
+      // Pause and show promotion popup - don't make the move yet
+      setPendingPromotion({
+        from: selectedSquare,
+        to: targetSquare,
+        color: piece!.color,
+      });
+      // Keep selection active for visual feedback
+      return;
+    }
+
     type ChessMoveInput = { from: string; to: string; promotion?: string };
     const moveObj: ChessMoveInput = { from: selectedSquare, to: targetSquare };
-    
+
     // If onMoveAttempt is provided, use it (controlled mode)
     if (onMoveAttempt) {
       onMoveAttempt(moveObj);
@@ -97,7 +140,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       setLegalMoves([]);
       return;
     }
-    
+
     // Otherwise, make move locally (uncontrolled mode for backward compatibility)
     const result = chess.move(moveObj);
     if (result) {
@@ -108,9 +151,49 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     setLegalMoves([]);
   };
 
+  /**
+   * Handle promotion piece selection from the popup
+   */
+  const handlePromotionSelect = (piece: PromotionPiece) => {
+    if (!pendingPromotion) return;
+
+    type ChessMoveInput = { from: string; to: string; promotion?: string };
+    const moveObj: ChessMoveInput = {
+      from: pendingPromotion.from,
+      to: pendingPromotion.to,
+      promotion: piece,
+    };
+
+    // If onMoveAttempt is provided, use it (controlled mode)
+    if (onMoveAttempt) {
+      onMoveAttempt(moveObj);
+    } else {
+      // Uncontrolled mode - make move locally
+      const result = chess.move(moveObj);
+      if (result) {
+        setInternalFen(chess.fen());
+        onMove?.({ san: result.san, color: result.color });
+      }
+    }
+
+    // Clear promotion state and selection
+    setPendingPromotion(null);
+    setSelectedSquare(null);
+    setLegalMoves([]);
+  };
+
+  /**
+   * Handle promotion cancellation (user clicks outside or presses Escape)
+   */
+  const handlePromotionCancel = () => {
+    setPendingPromotion(null);
+    setSelectedSquare(null);
+    setLegalMoves([]);
+  };
+
   const handleSquareClick = (row: number, col: number) => {
     if (disabled) return;
-    
+
     const squareId = squareIdForDisplay(row, col);
     const squarePiece = displayBoard[row][col];
 
@@ -266,6 +349,16 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
       {/* debug border (shows container even if image 404) */}
       <div className="pointer-events-none absolute inset-0 border border-transparent" />
+
+      {/* Promotion popup - shown when a pawn reaches the last rank */}
+      {pendingPromotion && (
+        <PromotionPopup
+          color={pendingPromotion.color}
+          theme={theme}
+          onSelect={handlePromotionSelect}
+          onCancel={handlePromotionCancel}
+        />
+      )}
     </div>
   );
 };
