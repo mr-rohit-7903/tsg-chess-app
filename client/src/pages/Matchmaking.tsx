@@ -24,7 +24,29 @@ const Matchmaking = () => {
   const hasJoinedQueue = useRef(false);
   const isMounted = useRef(true);
 
+  const [latestRating, setLatestRating] = useState<number | null>(null);
+
   const ratingKey = useMemo(() => (selectedTimeControl || 'blitz') as RatingKey, [selectedTimeControl]);
+
+  // Fetch latest rating when ratingKey changes
+  useEffect(() => {
+    if (!user?.userId) return;
+    
+    let active = true;
+    setLatestRating(null); // Reset while loading to fall back to cached
+
+    api.getUserRating(user.userId, ratingKey)
+      .then(data => {
+        if (active && isMounted.current) {
+          setLatestRating(data.rating); // Assuming API returns { rating: number, ... }
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch rating:', err);
+      });
+      
+    return () => { active = false; };
+  }, [user?.userId, ratingKey]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -310,7 +332,9 @@ const Matchmaking = () => {
             <div className="mt-8 pt-6 border-t border-border">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>Your Rating ({getTimeControlLabel(ratingKey)})</span>
-                <span className="font-semibold text-foreground">{user[ratingKey]}</span>
+                <span className="font-semibold text-foreground">
+                  {latestRating !== null ? latestRating : user[ratingKey]}
+                </span>
               </div>
             </div>
           </div>

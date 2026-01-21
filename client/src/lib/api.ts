@@ -249,7 +249,7 @@ export type LeaderboardEntry = {
 };
 
 export async function getUserRating(userId: string, timeControl?: string): Promise<Rating> {
-  const url = new URL(`/ratings/${userId}`, API_BASE_URL);
+  const url = new URL(`${API_BASE_URL}/ratings/${userId}`, window.location.origin);
   if (timeControl) url.searchParams.set('timeControl', timeControl);
   const res = await fetch(url.toString());
   const data = await res.json();
@@ -269,7 +269,7 @@ export async function getLeaderboard(
   timeControl: string,
   limit = 50
 ): Promise<LeaderboardEntry[]> {
-  const url = new URL(`/leaderboard`, API_BASE_URL);
+  const url = new URL(`${API_BASE_URL}/leaderboard`, window.location.origin);
   url.searchParams.set('timeControl', timeControl);
   url.searchParams.set('limit', String(limit));
   const res = await fetch(url.toString());
