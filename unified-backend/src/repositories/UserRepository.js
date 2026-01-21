@@ -170,7 +170,7 @@ class UserRepository {
             `SELECT user_id, username, ${timeControl} as rating, games_played, games_won
              FROM users
              WHERE games_played > 0
-             ORDER BY ${timeControl} DESC
+             ORDER BY ${timeControl} DESC, games_played DESC, username ASC
              LIMIT $1`,
             [limit]
         );

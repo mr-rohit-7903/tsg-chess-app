@@ -118,10 +118,22 @@ const Matchmaking = () => {
       navigate(`/game/${data.gameId}`);
     };
 
+    const onMatchExpired = (data: { message?: string }) => {
+      console.log('[Matchmaking] Expired:', data);
+      setIsInQueue(false);
+      setIsLoading(false);
+      hasJoinedQueue.current = false;
+      setJoinedAt(null);
+      setActiveQueueType(null);
+      setError(data.message || 'Matchmaking timed out');
+    };
+
     socket.on('match_found', onMatchFound);
+    socket.on('matchmaking_expired', onMatchExpired);
 
     return () => {
       socket.off('match_found', onMatchFound);
+      socket.off('matchmaking_expired', onMatchExpired);
     };
   }, [socket, navigate]);
 
