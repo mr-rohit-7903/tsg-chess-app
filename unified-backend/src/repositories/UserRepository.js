@@ -34,10 +34,10 @@ class UserRepository {
      * Find user by userId
      */
     static async findByUserId(userId, excludePassword = true) {
-        const fields = excludePassword 
+        const fields = excludePassword
             ? 'id, user_id, username, full_name, email, hall_of_residence, is_online, bullet, blitz, rapid, puzzles, games_played, games_won, created_at, updated_at'
             : '*';
-        
+
         const result = await query(
             `SELECT ${fields} FROM users WHERE user_id = $1`,
             [userId]
@@ -69,6 +69,30 @@ class UserRepository {
             [username, email]
         );
         return toCamelCase(result.rows[0]);
+    }
+
+    /**
+     * Search users by username (partial match)
+     */
+    static async searchByUsername(queryStr, limit = 10) {
+        const result = await query(
+            `SELECT user_id, username, is_online, bullet, blitz, rapid 
+             FROM users 
+             WHERE username ILIKE $1 
+             ORDER BY username 
+             LIMIT $2`,
+            [`%${queryStr}%`, limit]
+        );
+        return result.rows.map(row => ({
+            userId: row.user_id,
+            username: row.username,
+            isOnline: row.is_online,
+            ratings: {
+                bullet: row.bullet,
+                blitz: row.blitz,
+                rapid: row.rapid,
+            }
+        }));
     }
 
     /**
@@ -138,11 +162,18 @@ class UserRepository {
     }
 
     /**
+     * Reset all users to offline
+     */
+    static async resetAllToOffline() {
+        await query('UPDATE users SET is_online = false');
+    }
+
+    /**
      * Update ratings after game
      */
     static async updateRatingAndStats(userId, { timeControlKey, newRating, isWin, ratingChange }) {
         const ratingField = timeControlKey; // bullet, blitz, rapid
-        
+
         const result = await query(
             `UPDATE users 
              SET ${ratingField} = $1, 
@@ -174,7 +205,7 @@ class UserRepository {
              LIMIT $1`,
             [limit]
         );
-        
+
         return result.rows.map(row => ({
             userId: row.user_id,
             username: row.username,

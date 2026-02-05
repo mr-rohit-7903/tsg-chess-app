@@ -20,13 +20,14 @@ class GameHistoryRepository {
         finalFen,
         moves,
         pgn,
+        isFriendly = false,
     }) {
         const result_ = await query(
             `INSERT INTO game_history 
-             (user_id, game_id, opponent_user_id, opponent_username, result, rating_change, time_control, termination, final_fen, moves, pgn)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             (user_id, game_id, opponent_user_id, opponent_username, result, rating_change, time_control, termination, final_fen, moves, pgn, is_friendly)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
              RETURNING *`,
-            [userId, gameId, opponentUserId, opponentUsername, result, ratingChange, timeControl, termination, finalFen, JSON.stringify(moves || []), pgn]
+            [userId, gameId, opponentUserId, opponentUsername, result, ratingChange, timeControl, termination, finalFen, JSON.stringify(moves || []), pgn, isFriendly]
         );
         return this._toCamelCase(result_.rows[0]);
     }
@@ -71,6 +72,7 @@ class GameHistoryRepository {
             finalFen: row.final_fen,
             moves: row.moves,
             pgn: row.pgn,
+            isFriendly: row.is_friendly,
         };
     }
 }

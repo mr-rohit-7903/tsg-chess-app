@@ -33,6 +33,53 @@ export type User = {
   campusRank?: number;
 };
 
+export interface Friend {
+  userId: string;
+  username: string;
+  isOnline: boolean;
+  ratings: {
+    bullet: number;
+    blitz: number;
+    rapid: number;
+  };
+}
+
+export interface FriendRequest {
+  id: string;
+  senderId: string;
+  senderUsername?: string;
+  receiverId: string;
+  receiverUsername?: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
+}
+
+export interface FriendlyChallenge {
+  id: string;
+  challengerId: string;
+  challengerUsername?: string;
+  challengedId: string;
+  challengedUsername?: string;
+  timeControlKey: string;
+  status: 'pending' | 'accepted' | 'declined' | 'expired';
+  gameId?: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface UserSearchResult {
+  userId: string;
+  username: string;
+  isOnline: boolean;
+  ratings: {
+    bullet: number;
+    blitz: number;
+    rapid: number;
+  };
+  isFriend: boolean;
+  hasPendingRequest: boolean;
+}
+
 export interface PlayerInfo {
   name: string;
   rating: number;
@@ -46,6 +93,7 @@ export interface GameEntry {
   black: PlayerInfo;
   result: "Won" | "Lost" | "Draw";
   date: string;
+  isFriendly?: boolean;
 }
 
 export async function login(username: string, password: string) {
@@ -98,6 +146,122 @@ export async function updateUser(userId: string, updates: Partial<User>, token: 
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to update user');
   return data as User;
+}
+
+// Friends API
+export async function getFriends(token: string): Promise<Friend[]> {
+  const res = await fetch(`${API_BASE_URL}/friends`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to get friends');
+  return data;
+}
+
+export async function searchUsers(query: string, token: string): Promise<UserSearchResult[]> {
+  const res = await fetch(`${API_BASE_URL}/friends/search?q=${encodeURIComponent(query)}`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to search users');
+  return data;
+}
+
+export async function sendFriendRequest(receiverId: string, token: string): Promise<FriendRequest> {
+  const res = await fetch(`${API_BASE_URL}/friends/request`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ receiverId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to send friend request');
+  return data;
+}
+
+export async function getFriendRequests(token: string): Promise<FriendRequest[]> {
+  const res = await fetch(`${API_BASE_URL}/friends/requests/pending`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to get friend requests');
+  return data;
+}
+
+export async function acceptFriendRequest(requestId: string, token: string) {
+  const res = await fetch(`${API_BASE_URL}/friends/requests/${requestId}/accept`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to accept friend request');
+  return data;
+}
+
+export async function declineFriendRequest(requestId: string, token: string) {
+  const res = await fetch(`${API_BASE_URL}/friends/requests/${requestId}/decline`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to decline friend request');
+  return data;
+}
+
+export async function removeFriend(friendId: string, token: string) {
+  const res = await fetch(`${API_BASE_URL}/friends/${friendId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to remove friend');
+  return data;
+}
+
+// Challenges API
+export async function sendChallenge(challengedId: string, timeControlKey: string, token: string): Promise<FriendlyChallenge> {
+  const res = await fetch(`${API_BASE_URL}/challenges`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ challengedId, timeControlKey }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to send challenge');
+  return data;
+}
+
+export async function getPendingChallenges(token: string): Promise<FriendlyChallenge[]> {
+  const res = await fetch(`${API_BASE_URL}/challenges`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to get challenges');
+  return data;
+}
+
+export async function acceptChallenge(challengeId: string, token: string) {
+  const res = await fetch(`${API_BASE_URL}/challenges/${challengeId}/accept`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to accept challenge');
+  return data;
+}
+
+export async function declineChallenge(challengeId: string, token: string) {
+  const res = await fetch(`${API_BASE_URL}/challenges/${challengeId}/decline`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to decline challenge');
+  return data;
 }
 
 export type Mode = "bullet" | "blitz" | "rapid" | "bot";

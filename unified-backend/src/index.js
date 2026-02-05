@@ -4,14 +4,17 @@ const http = require('http');
 const cors = require('cors');
 const { connectPostgres } = require('./lib/db');
 const { initSocket } = require('./services/socket-service');
+const UserRepository = require('./repositories/UserRepository');
 
-// Import Routes
+// Routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const matchmakingRoutes = require('./routes/matchmaking');
 const gameRoutes = require('./routes/games');
 const leaderboardRoutes = require('./routes/leaderboard');
 const ratingRoutes = require('./routes/ratings');
+const friendRoutes = require('./routes/friends');
+const challengeRoutes = require('./routes/challenges');
 
 const PORT = process.env.PORT || 3001;
 const allowedOrigins = process.env.CORS_ORIGIN
@@ -47,6 +50,8 @@ app.use('/matchmaking', matchmakingRoutes);
 app.use('/games', gameRoutes);
 app.use('/leaderboard', leaderboardRoutes);
 app.use('/ratings', ratingRoutes);
+app.use('/friends', friendRoutes);
+app.use('/challenges', challengeRoutes);
 
 // Health
 app.get('/health', (_req, res) => res.json({ status: 'healthy', service: 'unified-backend', database: 'postgresql' }));
@@ -59,6 +64,10 @@ app.use((req, res) => {
 // Start
 const startServer = async () => {
   await connectPostgres();
+
+  // Reset all users to offline status on restart
+  await UserRepository.resetAllToOffline();
+
   initSocket(server, allowedOrigins);
 
   server.listen(PORT, () => {

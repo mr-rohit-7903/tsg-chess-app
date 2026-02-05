@@ -7,6 +7,7 @@ import Matchmaking from "./pages/Matchmaking";
 import Game from "./pages/Game";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
+import Friends from "./pages/Friends";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
@@ -30,6 +31,7 @@ const App = () => (
               <Route path="/play" element={<Matchmaking />} />
               <Route path="/game/:gameId" element={<Game />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/friends" element={<Friends />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />

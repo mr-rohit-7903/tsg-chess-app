@@ -18,4 +18,4 @@ const requireAuth = (req, res, next) => {
     }
 };
 
-module.exports = { requireAuth, JWT_SECRET };
+module.exports = { requireAuth, verifyToken: requireAuth, JWT_SECRET };

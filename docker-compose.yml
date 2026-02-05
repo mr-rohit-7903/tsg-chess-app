@@ -12,6 +12,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./unified-backend/migrations/init.sql:/docker-entrypoint-initdb.d/01_init.sql
       - ./unified-backend/migrations/add_pgn_column.sql:/docker-entrypoint-initdb.d/02_add_pgn_column.sql
+      - ./unified-backend/migrations/friends_migration.sql:/docker-entrypoint-initdb.d/03_friends_migration.sql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chess_user} -d ${POSTGRES_DB:-chess_platform}" ]
       interval: 10s
@@ -57,21 +58,27 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - ./unified-backend:/app
+      - /app/node_modules
     networks:
       - chess-network
 
-  # Frontend (Served via internal Nginx)
+  # Frontend (Dev Mode)
   frontend:
     build:
       context: ./client
-      dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost/api}
-        VITE_WS_BASE_URL: ${VITE_WS_BASE_URL:-http://localhost}
+      dockerfile: Dockerfile.dev
     container_name: chess-frontend
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8080:8080"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:3001
+      - VITE_WS_BASE_URL=http://localhost:3001
+    volumes:
+      - ./client:/app
+      - /app/node_modules
     networks:
       - chess-network
 

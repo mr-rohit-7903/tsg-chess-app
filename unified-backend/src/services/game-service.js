@@ -85,7 +85,7 @@ function generatePGN({ whiteUsername, blackUsername, result, moves, timeControl,
     return `${headers.join('\n')}\n\n${moveLines.join(' ')} ${pgnResult}`;
 }
 
-async function createGame({ whitePlayerId, blackPlayerId, timeControl, timeControlKey }) {
+async function createGame({ whitePlayerId, blackPlayerId, timeControl, timeControlKey, isFriendly = false }) {
     const gameId = uuidv4();
     const chess = new Chess();
 
@@ -99,6 +99,7 @@ async function createGame({ whitePlayerId, blackPlayerId, timeControl, timeContr
         incrementMs: timeControl.incrementMs || 0,
         timeControl,
         timeControlKey,
+        isFriendly: !!isFriendly, // Ensure boolean
         createdAt: Date.now(),
         lastMoveTimestamp: Date.now(),
         gameStarted: false,
@@ -315,7 +316,7 @@ async function claimTimeout(gameId, claimantId) {
 }
 
 async function updateRatingsAndHistory(gameState, winner, reason, chess) {
-    console.log(`[DEBUG updateRatingsAndHistory] Called with winner: ${winner}, reason: ${reason}`);
+    console.log(`[DEBUG updateRatingsAndHistory] Called with winner: ${winner}, reason: ${reason}, isFriendly: ${gameState.isFriendly}`);
 
     const whiteUser = await UserRepository.findByUserId(gameState.whitePlayerId, false);
     const blackUser = await UserRepository.findByUserId(gameState.blackPlayerId, false);
@@ -326,20 +327,6 @@ async function updateRatingsAndHistory(gameState, winner, reason, chess) {
     }
 
     const timeControlKey = gameState.timeControlKey || 'rapid';
-    const whiteRating = whiteUser[timeControlKey] || 1200;
-    const blackRating = blackUser[timeControlKey] || 1200;
-
-    let whiteScore = 0.5;
-    if (winner === 'white') whiteScore = 1;
-    else if (winner === 'black') whiteScore = 0;
-
-    const whiteChange = calculateRatingChange(whiteRating, blackRating, whiteScore);
-    const blackChange = calculateRatingChange(blackRating, whiteRating, 1 - whiteScore);
-
-    const newWhiteRating = whiteRating + whiteChange;
-    const newBlackRating = blackRating + blackChange;
-
-    const finishDate = new Date();
     const finalFen = gameState.fen;
     const moves = gameState.moveHistory || [];
 
@@ -353,21 +340,46 @@ async function updateRatingsAndHistory(gameState, winner, reason, chess) {
         termination: reason,
     });
 
-    // Update White user rating and stats
-    await UserRepository.updateRatingAndStats(gameState.whitePlayerId, {
-        timeControlKey,
-        newRating: newWhiteRating,
-        isWin: winner === 'white',
-        ratingChange: whiteChange,
-    });
+    let whiteChange = 0;
+    let blackChange = 0;
+    let newWhiteRating = whiteUser[timeControlKey] || 1200;
+    let newBlackRating = blackUser[timeControlKey] || 1200;
 
-    // Update Black user rating and stats
-    await UserRepository.updateRatingAndStats(gameState.blackPlayerId, {
-        timeControlKey,
-        newRating: newBlackRating,
-        isWin: winner === 'black',
-        ratingChange: blackChange,
-    });
+    // Only calculate and update ratings if NOT friendly
+    if (!gameState.isFriendly) {
+        const whiteRating = whiteUser[timeControlKey] || 1200;
+        const blackRating = blackUser[timeControlKey] || 1200;
+
+        let whiteScore = 0.5;
+        if (winner === 'white') whiteScore = 1;
+        else if (winner === 'black') whiteScore = 0;
+
+        whiteChange = calculateRatingChange(whiteRating, blackRating, whiteScore);
+        blackChange = calculateRatingChange(blackRating, whiteRating, 1 - whiteScore);
+
+        newWhiteRating = whiteRating + whiteChange;
+        newBlackRating = blackRating + blackChange;
+
+        // Update White user rating and stats
+        await UserRepository.updateRatingAndStats(gameState.whitePlayerId, {
+            timeControlKey,
+            newRating: newWhiteRating,
+            isWin: winner === 'white',
+            ratingChange: whiteChange,
+        });
+
+        // Update Black user rating and stats
+        await UserRepository.updateRatingAndStats(gameState.blackPlayerId, {
+            timeControlKey,
+            newRating: newBlackRating,
+            isWin: winner === 'black',
+            ratingChange: blackChange,
+        });
+
+        console.log(`[GameService] Ratings updated. White: ${whiteRating}->${newWhiteRating}, Black: ${blackRating}->${newBlackRating}`);
+    } else {
+        console.log(`[GameService] Friendly game - skipping rating updates. code: 200`);
+    }
 
     // Add to game history for both players
     await GameHistoryRepository.addGameToHistory({
@@ -382,6 +394,7 @@ async function updateRatingsAndHistory(gameState, winner, reason, chess) {
         finalFen,
         moves,
         pgn,
+        isFriendly: gameState.isFriendly,
     });
 
     await GameHistoryRepository.addGameToHistory({
@@ -396,17 +409,19 @@ async function updateRatingsAndHistory(gameState, winner, reason, chess) {
         finalFen,
         moves,
         pgn,
+        isFriendly: gameState.isFriendly,
     });
-
-    console.log(`[GameService] History & Ratings saved. White: ${whiteRating}->${newWhiteRating}, Black: ${blackRating}->${newBlackRating}`);
 
     return {
         whiteRatingChange: whiteChange,
         blackRatingChange: blackChange,
         newWhiteRating,
-        newBlackRating
+        newBlackRating,
+        isFriendly: gameState.isFriendly
     };
 }
+
+
 
 function getTerminationReason(chess) {
     if (chess.isCheckmate()) return 'checkmate';
