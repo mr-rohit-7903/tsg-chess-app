@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    allowedHosts: ["chess.apnadomain.qzz.io", "localhost"],
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
