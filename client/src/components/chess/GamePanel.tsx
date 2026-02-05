@@ -27,6 +27,10 @@ interface GamePanelProps {
   onResign?: () => void;
   onOfferDraw?: () => void;
   gameOver?: boolean;
+  whitePlayerName?: string;
+  blackPlayerName?: string;
+  gameResult?: { winner: string; reason: string } | null;
+  fen?: string;
 }
 
 export const GamePanel: React.FC<GamePanelProps> = ({
@@ -37,6 +41,10 @@ export const GamePanel: React.FC<GamePanelProps> = ({
   onResign,
   onOfferDraw,
   gameOver = false,
+  whitePlayerName = 'White',
+  blackPlayerName = 'Black',
+  gameResult = null,
+  fen,
 }) => {
   const [activeTab, setActiveTab] = useState<'play' | 'chat'>('play');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -183,6 +191,93 @@ export const GamePanel: React.FC<GamePanelProps> = ({
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Generate PGN string from game data
+  const generatePGN = useCallback(() => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
+
+    // Determine result
+    let result = '*';
+    if (gameResult) {
+      if (gameResult.winner === 'white') {
+        result = '1-0';
+      } else if (gameResult.winner === 'black') {
+        result = '0-1';
+      } else if (gameResult.winner === 'draw') {
+        result = '1/2-1/2';
+      }
+    }
+
+    // Build PGN headers
+    const headers = [
+      `[Event "TSG Chess Game"]`,
+      `[Site "TSG Chess Platform"]`,
+      `[Date "${dateStr}"]`,
+      `[White "${whitePlayerName}"]`,
+      `[Black "${blackPlayerName}"]`,
+      `[Result "${result}"]`,
+    ];
+
+    if (fen && fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+      headers.push(`[FEN "${fen}"]`);
+    }
+
+    // Build move text
+    const moveText = moves.map(move => {
+      if (move.black) {
+        return `${move.number}. ${move.white} ${move.black}`;
+      }
+      return `${move.number}. ${move.white}`;
+    }).join(' ');
+
+    return `${headers.join('\n')}\n\n${moveText} ${result}`;
+  }, [moves, whitePlayerName, blackPlayerName, gameResult, fen]);
+
+  // Download PGN file
+  const handleDownloadPGN = useCallback(() => {
+    const pgn = generatePGN();
+    const blob = new Blob([pgn], { type: 'application/x-chess-pgn' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `game-${gameId || 'chess'}-${Date.now()}.pgn`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [generatePGN, gameId]);
+
+  // Share PGN
+  const handleSharePGN = useCallback(async () => {
+    const pgn = generatePGN();
+
+    // Try Web Share API first
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Chess Game - ${whitePlayerName} vs ${blackPlayerName}`,
+          text: pgn,
+        });
+        return;
+      } catch (err) {
+        // User cancelled or share failed, fall through to clipboard
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Share failed:', err);
+        }
+      }
+    }
+
+    // Fallback: Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(pgn);
+      // Show a brief visual feedback (could use toast, but keeping it simple)
+      alert('PGN copied to clipboard!');
+    } catch (err) {
+      console.error('Clipboard copy failed:', err);
+      alert('Failed to copy PGN to clipboard');
+    }
+  }, [generatePGN, whitePlayerName, blackPlayerName]);
+
   return (
     <div className={cn("flex flex-col h-full bg-card rounded-lg overflow-hidden", className)}>
       {/* Header Tabs */}
@@ -308,12 +403,14 @@ export const GamePanel: React.FC<GamePanelProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
             <button
+              onClick={handleSharePGN}
               className="p-2 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
               title="Share game"
             >
               <Share2 size={18} />
             </button>
             <button
+              onClick={handleDownloadPGN}
               className="p-2 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
               title="Download PGN"
             >

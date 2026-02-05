@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { Chess, Move } from 'chess.js';
 import { Button } from '@/components/ui/button';
 import { useSocket } from '@/context/SocketContext';
+import { Download, Share2 } from 'lucide-react';
 
 const boardColorMap: Record<string, { light: string; dark: string; highlight: string }> = {
   "blue-marble.jpg": { light: "210 80% 86%", dark: "210 85% 40%", highlight: "50 100% 60%" },
@@ -46,6 +47,12 @@ const Game = () => {
   // Chess instances
   const chess = useMemo(() => new Chess(), []);
   const chessHistory = useRef<Chess>(new Chess());
+
+  // Memoized player names (computed early for use in callbacks)
+  const isUserWhite = useMemo(() => user?.userId === gameState?.whitePlayerId, [user?.userId, gameState?.whitePlayerId]);
+  const isUserBlack = useMemo(() => user?.userId === gameState?.blackPlayerId, [user?.userId, gameState?.blackPlayerId]);
+  const whitePlayerName = useMemo(() => whitePlayerInfo?.username || (isUserWhite && user ? user.username : 'Opponent'), [whitePlayerInfo?.username, isUserWhite, user]);
+  const blackPlayerName = useMemo(() => blackPlayerInfo?.username || (isUserBlack && user ? user.username : 'Opponent'), [blackPlayerInfo?.username, isUserBlack, user]);
 
   // Timer refs
   const whiteBaseRef = useRef<number>(0);
@@ -435,6 +442,88 @@ const Game = () => {
     }
   };
 
+  // Generate PGN string from game data
+  const generatePGN = useCallback(() => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
+
+    // Determine result
+    let result = '*';
+    if (gameOver) {
+      if (gameOver.winner === 'white') {
+        result = '1-0';
+      } else if (gameOver.winner === 'black') {
+        result = '0-1';
+      } else if (gameOver.winner === 'draw') {
+        result = '1/2-1/2';
+      }
+    }
+
+    // Build PGN headers
+    const headers = [
+      `[Event "TSG Chess Game"]`,
+      `[Site "TSG Chess Platform"]`,
+      `[Date "${dateStr}"]`,
+      `[White "${whitePlayerName}"]`,
+      `[Black "${blackPlayerName}"]`,
+      `[Result "${result}"]`,
+    ];
+
+    // Build move text
+    const moveText = moves.map(move => {
+      if (move.black) {
+        return `${move.number}. ${move.white} ${move.black}`;
+      }
+      return `${move.number}. ${move.white}`;
+    }).join(' ');
+
+    return `${headers.join('\n')}\n\n${moveText} ${result}`;
+  }, [moves, whitePlayerName, blackPlayerName, gameOver]);
+
+  // Download PGN file
+  const handleDownloadPGN = useCallback(() => {
+    const pgn = generatePGN();
+    const blob = new Blob([pgn], { type: 'application/x-chess-pgn' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `game-${gameId || 'chess'}-${Date.now()}.pgn`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [generatePGN, gameId]);
+
+  // Share PGN
+  const handleSharePGN = useCallback(async () => {
+    const pgn = generatePGN();
+
+    // Try Web Share API first
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Chess Game - ${whitePlayerName} vs ${blackPlayerName}`,
+          text: pgn,
+        });
+        return;
+      } catch (err) {
+        // User cancelled or share failed, fall through to clipboard
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Share failed:', err);
+        }
+      }
+    }
+
+    // Fallback: Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(pgn);
+      toast({ title: 'PGN copied to clipboard!' });
+    } catch (err) {
+      console.error('Clipboard copy failed:', err);
+      toast({ title: 'Failed to copy PGN', variant: 'destructive' });
+    }
+  }, [generatePGN, whitePlayerName, blackPlayerName]);
+
   // Render logic
   if (!isAuthenticated || !user) {
     return (
@@ -488,17 +577,12 @@ const Game = () => {
     );
   }
 
-  const isUserWhite = user.userId === gameState.whitePlayerId;
-  const isUserBlack = user.userId === gameState.blackPlayerId;
-
   let isWhiteTurn = true;
   try {
     chess.load(displayFen);
     isWhiteTurn = chess.turn() === 'w';
   } catch { void 0 }
 
-  const whitePlayerName = whitePlayerInfo?.username || (isUserWhite ? user.username : 'Opponent');
-  const blackPlayerName = blackPlayerInfo?.username || (isUserBlack ? user.username : 'Opponent');
   const whitePlayerRating = whitePlayerInfo?.rating || 1200;
   const blackPlayerRating = blackPlayerInfo?.rating || 1200;
 
@@ -646,6 +730,24 @@ const Game = () => {
                       )}
                     </div>
 
+                    {/* Download & Share Buttons */}
+                    <div className="flex gap-3 mb-3">
+                      <button
+                        onClick={handleDownloadPGN}
+                        className="flex-1 px-4 py-3 rounded-lg bg-secondary text-secondary-foreground font-semibold hover:bg-secondary/80 border border-border flex items-center justify-center gap-2"
+                      >
+                        <Download size={18} />
+                        Download PGN
+                      </button>
+                      <button
+                        onClick={handleSharePGN}
+                        className="flex-1 px-4 py-3 rounded-lg bg-secondary text-secondary-foreground font-semibold hover:bg-secondary/80 border border-border flex items-center justify-center gap-2"
+                      >
+                        <Share2 size={18} />
+                        Share
+                      </button>
+                    </div>
+
                     <div className="flex gap-3">
                       <button
                         className="flex-1 px-4 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90"
@@ -725,6 +827,10 @@ const Game = () => {
             currentUserId={user.userId}
             onResign={handleResign}
             gameOver={!!gameOver}
+            whitePlayerName={whitePlayerName}
+            blackPlayerName={blackPlayerName}
+            gameResult={gameOver}
+            fen={displayFen}
           />
         </div>
       </div>

@@ -41,6 +41,50 @@ function extractMoveHistory(chess) {
     }));
 }
 
+// Generate PGN string from game data
+function generatePGN({ whiteUsername, blackUsername, result, moves, timeControl, termination }) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
+
+    // Determine PGN result string
+    let pgnResult = '*';
+    if (result === 'white') {
+        pgnResult = '1-0';
+    } else if (result === 'black') {
+        pgnResult = '0-1';
+    } else if (result === 'draw') {
+        pgnResult = '1/2-1/2';
+    }
+
+    // Build PGN headers
+    const headers = [
+        `[Event "TSG Chess Game"]`,
+        `[Site "TSG Chess Platform"]`,
+        `[Date "${dateStr}"]`,
+        `[White "${whiteUsername}"]`,
+        `[Black "${blackUsername}"]`,
+        `[Result "${pgnResult}"]`,
+        `[TimeControl "${timeControl}"]`,
+        `[Termination "${termination}"]`,
+    ];
+
+    // Build move text from moves array
+    const moveHistory = moves || [];
+    const moveLines = [];
+    for (let i = 0; i < moveHistory.length; i += 2) {
+        const moveNumber = Math.floor(i / 2) + 1;
+        const whiteMove = moveHistory[i]?.san || '';
+        const blackMove = moveHistory[i + 1]?.san || '';
+        if (blackMove) {
+            moveLines.push(`${moveNumber}. ${whiteMove} ${blackMove}`);
+        } else if (whiteMove) {
+            moveLines.push(`${moveNumber}. ${whiteMove}`);
+        }
+    }
+
+    return `${headers.join('\n')}\n\n${moveLines.join(' ')} ${pgnResult}`;
+}
+
 async function createGame({ whitePlayerId, blackPlayerId, timeControl, timeControlKey }) {
     const gameId = uuidv4();
     const chess = new Chess();
@@ -127,7 +171,7 @@ async function handlePlayerMove(gameId, playerId, move) {
         // Update State
         gameState.fen = chess.fen();
         gameState.lastMoveTimestamp = now;
-        
+
         // Store the move for incremental updates
         if (!gameState.moveHistory) gameState.moveHistory = [];
         gameState.moveHistory.push({
@@ -152,10 +196,10 @@ async function handlePlayerMove(gameId, playerId, move) {
         }
 
         await redis.set(`game:${gameId}`, JSON.stringify(gameState));
-        
+
         // Return the move details for incremental broadcast
-        return { 
-            success: true, 
+        return {
+            success: true,
             newState: gameState,
             move: {
                 from: moveResult.from,
@@ -299,6 +343,16 @@ async function updateRatingsAndHistory(gameState, winner, reason, chess) {
     const finalFen = gameState.fen;
     const moves = gameState.moveHistory || [];
 
+    // Generate PGN for this game
+    const pgn = generatePGN({
+        whiteUsername: whiteUser.username,
+        blackUsername: blackUser.username,
+        result: winner,
+        moves,
+        timeControl: timeControlKey,
+        termination: reason,
+    });
+
     // Update White user rating and stats
     await UserRepository.updateRatingAndStats(gameState.whitePlayerId, {
         timeControlKey,
@@ -327,6 +381,7 @@ async function updateRatingsAndHistory(gameState, winner, reason, chess) {
         termination: reason,
         finalFen,
         moves,
+        pgn,
     });
 
     await GameHistoryRepository.addGameToHistory({
@@ -340,10 +395,11 @@ async function updateRatingsAndHistory(gameState, winner, reason, chess) {
         termination: reason,
         finalFen,
         moves,
+        pgn,
     });
 
     console.log(`[GameService] History & Ratings saved. White: ${whiteRating}->${newWhiteRating}, Black: ${blackRating}->${newBlackRating}`);
-    
+
     return {
         whiteRatingChange: whiteChange,
         blackRatingChange: blackChange,

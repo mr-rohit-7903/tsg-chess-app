@@ -61,6 +61,9 @@ CREATE TABLE IF NOT EXISTS game_history (
     -- Store move history as JSON array
     moves JSONB,
     
+    -- Store PGN notation for easy download/sharing
+    pgn TEXT,
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

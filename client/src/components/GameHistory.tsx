@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Clock, Zap, Bot, Trophy, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useState, useCallback } from "react";
+import { Clock, Zap, Bot, Trophy, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 import * as api from '@/lib/api';
 
@@ -36,6 +36,24 @@ export const GameHistory: React.FC<{ games: api.GameHistoryEntry[] }> = ({ games
     }
   };
 
+  // Download PGN file for a game
+  const handleDownloadPGN = useCallback((game: api.GameHistoryEntry) => {
+    if (!game.pgn) {
+      alert('PGN not available for this game');
+      return;
+    }
+
+    const blob = new Blob([game.pgn], { type: 'application/x-chess-pgn' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `game-${game.gameId}-${new Date(game.playedAt).toISOString().split('T')[0]}.pgn`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
   return (
     <div className="relative rounded-2xl p-6 mb-6 overflow-hidden bg-gradient-to-br from-primary/6 via-primary/3 to-background border border-border shadow-xl">
 
@@ -69,7 +87,7 @@ export const GameHistory: React.FC<{ games: api.GameHistoryEntry[] }> = ({ games
                 return (
                   <div
                     key={g.gameId || idx}
-                    className="grid grid-cols-5 items-center gap-4 p-4 bg-card hover:bg-secondary/50 transition-colors"
+                    className="grid grid-cols-6 items-center gap-4 p-4 bg-card hover:bg-secondary/50 transition-colors"
                   >
                     {/* Time Control */}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -99,7 +117,7 @@ export const GameHistory: React.FC<{ games: api.GameHistoryEntry[] }> = ({ games
                     </div>
 
                     {/* Result */}
-                    <div className="flex flex-col items-end">
+                    <div className="flex flex-col items-center">
                       <span
                         className={`text-sm font-semibold px-2 py-1 rounded ${isWon ? "text-green-400 bg-green-400/10" : isDraw ? "text-yellow-400 bg-yellow-400/10" : "text-red-400 bg-red-400/10"
                           }`}
@@ -107,6 +125,18 @@ export const GameHistory: React.FC<{ games: api.GameHistoryEntry[] }> = ({ games
                         {g.result.charAt(0).toUpperCase() + g.result.slice(1)}
                       </span>
                       <span className="text-xs text-muted-foreground mt-1">{new Date(g.playedAt).toLocaleDateString()}</span>
+                    </div>
+
+                    {/* Download Button */}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => handleDownloadPGN(g)}
+                        disabled={!g.pgn}
+                        className="p-2 rounded-lg bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={g.pgn ? "Download PGN" : "PGN not available"}
+                      >
+                        <Download size={16} />
+                      </button>
                     </div>
 
                   </div>
@@ -132,8 +162,8 @@ export const GameHistory: React.FC<{ games: api.GameHistoryEntry[] }> = ({ games
                       key={page}
                       onClick={() => goToPage(page)}
                       className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === currentPage
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-secondary text-muted-foreground"
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-secondary text-muted-foreground"
                         }`}
                     >
                       {page}

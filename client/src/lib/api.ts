@@ -10,6 +10,8 @@ export type GameHistoryEntry = {
   timeControl: string;
   termination: string;
   playedAt: string;
+  finalFen?: string;
+  pgn?: string;
 };
 
 export type User = {
