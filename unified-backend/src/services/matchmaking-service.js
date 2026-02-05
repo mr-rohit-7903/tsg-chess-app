@@ -3,9 +3,20 @@ const { createGame } = require('./game-service');
 const { emitToUser } = require('./socket-service');
 
 const TIME_CONTROLS = {
-    bullet: { initialMs: 60000, incrementMs: 0 },
-    blitz: { initialMs: 300000, incrementMs: 0 },
-    rapid: { initialMs: 600000, incrementMs: 0 },
+    // Bullet category (games under 3 minutes)
+    'bullet': { initialMs: 60000, incrementMs: 0, category: 'bullet' },         // 1 min
+    'bullet+1': { initialMs: 60000, incrementMs: 1000, category: 'bullet' },    // 1 | 1
+    'bullet+2|1': { initialMs: 120000, incrementMs: 1000, category: 'bullet' }, // 2 | 1
+
+    // Blitz category (3-10 minutes)
+    'blitz-3': { initialMs: 180000, incrementMs: 0, category: 'blitz' },        // 3 min
+    'blitz+3|2': { initialMs: 180000, incrementMs: 2000, category: 'blitz' },   // 3 | 2
+    'blitz': { initialMs: 300000, incrementMs: 0, category: 'blitz' },          // 5 min
+
+    // Rapid category (10+ minutes)
+    'rapid': { initialMs: 600000, incrementMs: 0, category: 'rapid' },          // 10 min
+    'rapid+15|10': { initialMs: 900000, incrementMs: 10000, category: 'rapid' }, // 15 | 10
+    'rapid-30': { initialMs: 1800000, incrementMs: 0, category: 'rapid' },      // 30 min
 };
 
 let isRunning = false;
@@ -49,13 +60,13 @@ async function matchmakingLoop() {
     try {
         for (const timeControl of Object.keys(TIME_CONTROLS)) {
             const users = await redis.zrange(`queue:${timeControl}`, 0, -1);
-            
+
             // 1. Filter and Expire Users
             const validUsers = [];
-            
+
             for (const userId of users) {
                 const entry = await redis.hgetall(`entry:${userId}`);
-                
+
                 // Check if entry exists and checks for expiry (2 minutes)
                 if (!entry || !entry.joinedAt) {
                     // Stale queue entry (key expired or missing), clean it up
@@ -71,11 +82,11 @@ async function matchmakingLoop() {
                     try {
                         console.log(`[Matchmaking] User ${userId} request expired after ${timeInQueue}ms`);
                         await removeFromQueue(userId);
-                        emitToUser(userId, 'matchmaking_expired', { 
-                            message: 'Cannot find a match. Please try again.' 
+                        emitToUser(userId, 'matchmaking_expired', {
+                            message: 'Cannot find a match. Please try again.'
                         });
                     } catch (e) {
-                         console.error(`[Matchmaking] Error expiring user ${userId}`, e);
+                        console.error(`[Matchmaking] Error expiring user ${userId}`, e);
                     }
                     continue;
                 }
@@ -98,7 +109,7 @@ async function matchmakingLoop() {
                         whitePlayerId: whiteId,
                         blackPlayerId: blackId,
                         timeControl: TIME_CONTROLS[timeControl],
-                        timeControlKey: timeControl
+                        timeControlKey: TIME_CONTROLS[timeControl].category || timeControl
                     });
 
                     // cleanup queue

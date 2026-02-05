@@ -103,6 +103,7 @@ export type Mode = "bullet" | "blitz" | "rapid" | "bot";
 export type TimeControl = {
   initialMs: number;
   incrementMs: number;
+  category?: string;
 };
 
 export type TimeControls = {

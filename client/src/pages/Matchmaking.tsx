@@ -12,7 +12,7 @@ const Matchmaking = () => {
   const { user, isAuthenticated } = useAuth();
   const { socket, isConnected } = useSocket();
   const navigate = useNavigate();
-  
+
   const [timeControls, setTimeControls] = useState<Record<string, api.TimeControl>>({});
   const [selectedTimeControl, setSelectedTimeControl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,12 +26,15 @@ const Matchmaking = () => {
 
   const [latestRating, setLatestRating] = useState<number | null>(null);
 
-  const ratingKey = useMemo(() => (selectedTimeControl || 'blitz') as RatingKey, [selectedTimeControl]);
+  const ratingKey = useMemo(() => {
+    const control = timeControls[selectedTimeControl];
+    return (control?.category || selectedTimeControl || 'blitz') as RatingKey;
+  }, [selectedTimeControl, timeControls]);
 
   // Fetch latest rating when ratingKey changes
   useEffect(() => {
     if (!user?.userId) return;
-    
+
     let active = true;
     setLatestRating(null); // Reset while loading to fall back to cached
 
@@ -44,7 +47,7 @@ const Matchmaking = () => {
       .catch(err => {
         console.error('Failed to fetch rating:', err);
       });
-      
+
     return () => { active = false; };
   }, [user?.userId, ratingKey]);
 
@@ -78,12 +81,12 @@ const Matchmaking = () => {
   // Check for existing game on mount
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-    
+
     const checkExistingGame = async () => {
       try {
         const token = localStorage.getItem('auth_token');
         if (!token) return;
-        
+
         const status = await api.getMatchmakingStatus(user.userId, token);
         if (status.hasGame && status.gameId) {
           navigate(`/game/${status.gameId}`);
@@ -97,7 +100,7 @@ const Matchmaking = () => {
         // Ignore
       }
     };
-    
+
     checkExistingGame();
   }, [isAuthenticated, user, navigate]);
 
@@ -143,17 +146,17 @@ const Matchmaking = () => {
       setWaitTime(0);
       return;
     }
-    
+
     const interval = setInterval(() => {
       setWaitTime(Date.now() - joinedAt);
     }, 500);
-    
+
     return () => clearInterval(interval);
   }, [isInQueue, joinedAt]);
 
   const handleJoinQueue = async () => {
     if (!user || !selectedTimeControl || hasJoinedQueue.current) return;
-    
+
     setIsLoading(true);
     setError(null);
     hasJoinedQueue.current = true;
@@ -183,7 +186,7 @@ const Matchmaking = () => {
     setIsLoading(true);
     hasJoinedQueue.current = false;
     setActiveQueueType(null);
-    
+
     try {
       const token = localStorage.getItem('auth_token');
       if (token) {
@@ -220,7 +223,14 @@ const Matchmaking = () => {
 
   const getTimeControlLabel = (key: string) => {
     const labels: Record<string, string> = {
-      bullet: 'Bullet', blitz: 'Blitz', rapid: 'Rapid', classical: 'Classical',
+      // Bullet variants
+      bullet: 'Bullet', 'bullet+1': 'Bullet', 'bullet+2|1': 'Bullet',
+      // Blitz variants
+      'blitz-3': 'Blitz', 'blitz+3|2': 'Blitz', blitz: 'Blitz',
+      // Rapid variants
+      rapid: 'Rapid', 'rapid+15|10': 'Rapid', 'rapid-30': 'Rapid',
+      // Other
+      classical: 'Classical',
     };
     return labels[key] || key;
   };
@@ -257,11 +267,10 @@ const Matchmaking = () => {
                       <button
                         key={key}
                         onClick={() => setSelectedTimeControl(key)}
-                        className={`p-4 rounded-lg border-2 transition-all text-left ${
-                          selectedTimeControl === key
-                            ? 'border-primary bg-primary/10'
-                            : 'border-border hover:border-primary/50'
-                        }`}
+                        className={`p-4 rounded-lg border-2 transition-all text-left ${selectedTimeControl === key
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-primary/50'
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
