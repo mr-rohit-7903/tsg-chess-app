@@ -214,6 +214,48 @@ class UserRepository {
             gamesWon: row.games_won,
         }));
     }
+
+    /**
+     * Find user by email
+     */
+    static async findByEmail(email) {
+        const result = await query(
+            'SELECT * FROM users WHERE email = $1',
+            [email]
+        );
+        return toCamelCase(result.rows[0]);
+    }
+
+    /**
+     * Save a hashed password reset token and its expiration
+     */
+    static async saveResetToken(userId, hashedToken, expiresAt) {
+        await query(
+            `UPDATE users SET reset_password_token = $1, reset_password_expires = $2 WHERE user_id = $3`,
+            [hashedToken, expiresAt, userId]
+        );
+    }
+
+    /**
+     * Find a user by hashed reset token (must not be expired)
+     */
+    static async findByResetToken(hashedToken) {
+        const result = await query(
+            `SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_expires > NOW()`,
+            [hashedToken]
+        );
+        return toCamelCase(result.rows[0]);
+    }
+
+    /**
+     * Update user password and clear reset token fields
+     */
+    static async updatePassword(userId, hashedPassword) {
+        await query(
+            `UPDATE users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL WHERE user_id = $2`,
+            [hashedPassword, userId]
+        );
+    }
 }
 
 module.exports = UserRepository;

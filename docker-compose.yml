@@ -11,8 +11,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./unified-backend/migrations/init.sql:/docker-entrypoint-initdb.d/01_init.sql
-      - ./unified-backend/migrations/add_pgn_column.sql:/docker-entrypoint-initdb.d/02_add_pgn_column.sql
-      - ./unified-backend/migrations/friends_migration.sql:/docker-entrypoint-initdb.d/03_friends_migration.sql
+      - ./unified-backend/migrations/02_add_reset_tokens.sql:/docker-entrypoint-initdb.d/02_add_reset_tokens.sql
+      - ./unified-backend/migrations/add_pgn_column.sql:/docker-entrypoint-initdb.d/03_add_pgn_column.sql
+      - ./unified-backend/migrations/friends_migration.sql:/docker-entrypoint-initdb.d/04_friends_migration.sql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chess_user} -d ${POSTGRES_DB:-chess_platform}" ]
       interval: 10s
@@ -51,6 +52,9 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_change_in_production}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
     ports:
       - "3001:3001"
     depends_on:

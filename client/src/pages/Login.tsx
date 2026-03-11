@@ -21,8 +21,8 @@ const Login = () => {
       toast({ title: 'Success', description: 'Logged in successfully!' });
       navigate('/');
     } catch (err) {
-      toast({ 
-        title: 'Login Failed', 
+      toast({
+        title: 'Login Failed',
         description: (err as Error).message || 'Invalid credentials',
         variant: 'destructive'
       });
@@ -73,6 +73,11 @@ const Login = () => {
                   {error}
                 </div>
               )}
+              <div className="text-right">
+                <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                  Forgot Password?
+                </Link>
+              </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Logging in...' : 'Log In'}
               </Button>
