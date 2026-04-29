@@ -288,7 +288,8 @@ const Game = () => {
     const onGameOver = (outcome: { winner: string; reason: string; noRatingChange?: boolean; whiteRatingChange?: number; blackRatingChange?: number }) => {
       console.log('[Game] Game over:', outcome);
       setGameOver(outcome);
-      // Stop timer updates visually if needed, though stopped by checking gameOver
+      // Permanently stop timeout claiming
+      claimingTimeoutRef.current = true;
     };
 
     socket.on('game_state', onGameState);
@@ -338,7 +339,10 @@ const Game = () => {
             .then(() => console.log('Timeout claimed'))
             .catch(e => console.error('Claim failed', e))
             .finally(() => {
-              setTimeout(() => { claimingTimeoutRef.current = false; }, 5000);
+              // Only reset if game is not over yet
+              if (!gameOver) {
+                setTimeout(() => { claimingTimeoutRef.current = false; }, 5000);
+              }
             });
         }
       }
@@ -441,6 +445,22 @@ const Game = () => {
       toast({ title: 'Resign failed', variant: 'destructive' });
     }
   };
+
+  // Navigation handler that cleans up socket before navigating
+  const handleNavigateAway = useCallback((path: string) => {
+    // Leave game room and clean up listeners before navigating
+    if (socket && gameId) {
+      socket.off('game_state');
+      socket.off('move_made');
+      socket.off('move_error');
+      socket.off('game_over');
+      socket.emit('leave_game', gameId);
+    }
+    // Reset refs so component doesn't interfere if somehow still mounted
+    claimingTimeoutRef.current = true;
+    initialFetchDone.current = false;
+    navigate(path);
+  }, [socket, gameId, navigate]);
 
   // Generate PGN string from game data
   const generatePGN = useCallback(() => {
@@ -751,13 +771,13 @@ const Game = () => {
                     <div className="flex gap-3">
                       <button
                         className="flex-1 px-4 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90"
-                        onClick={() => navigate('/play')}
+                        onClick={() => handleNavigateAway('/play')}
                       >
                         Play Again
                       </button>
                       <button
                         className="flex-1 px-4 py-3 rounded-lg bg-secondary text-secondary-foreground font-semibold hover:bg-secondary/80 border border-border"
-                        onClick={() => navigate('/')}
+                        onClick={() => handleNavigateAway('/')}
                       >
                         Home
                       </button>
@@ -766,7 +786,7 @@ const Game = () => {
 
                   <button
                     aria-label="Close"
-                    onClick={() => navigate('/play')}
+                    onClick={() => handleNavigateAway('/play')}
                     className="absolute top-4 right-4 w-8 h-8 rounded-full bg-secondary hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center"
                   >
                     ✕
